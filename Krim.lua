@@ -1279,15 +1279,18 @@ autostrafe = ui.reference("Misc", "Movement", "Air strafe"),
             warmup_settings = warmup_group:button("Default Warmup Settings", function() return client.exec('sv_cheats 1; mp_do_warmup_offine 1; bot_stop 1; sv_airaccelerate 100; sv_infinite_ammo 1; sv_regeneration_force_on 1; sv_grenade_trajectory 1; sv_grenade_trajectory_thickness 0.2; bot_kick; give weapon_hegrenade; give weapon_molotov; give weapon_smokegrenade; give weapon_ssg08; mp_warmuptime 9999999999999 mp_autoteambalance 0;mp_limitteams 0;mp_death_drop_gun 0;mp_buy_anywhere 1; impulse 101') end),
         },
         config = {
+            mode = config_group:combobox('Config Source', {'Local', 'Cloud'}, false),
+            -- Local configs
             list = config_group:listbox('Configs', '', false),
             name = config_group:textbox('Configuration name', '', false),
             load = config_group:button('Load', function() end),
-
             save = config_group:button('Create \v/\r Save', function() end),
-    
             delete = config_group:button('Delete', function() end),
             import = config_group:button('Import from \vclipboard', function() end),
-            export = config_group:button('Export to \vclipboard', function() end)
+            export = config_group:button('Export to \vclipboard', function() end),
+            -- Cloud configs
+            cloud_list = config_group:listbox('Available \vCloud Configs', '', false),
+            load_cloud = config_group:button('Load from \vCloud', function() end)
         }
     }
 
@@ -1347,13 +1350,24 @@ autostrafe = ui.reference("Misc", "Movement", "Air strafe"),
     local aa_main = {lua_menu.antiaim.tab, "Main"}
     local ragebot_tab = {lua_menu.main.tab, " Ragebot Features"}
 
-    lua_menu.config.list:depend(configs_tab)
-    lua_menu.config.name:depend(configs_tab)
-    lua_menu.config.save:depend(configs_tab)
-    lua_menu.config.load:depend(configs_tab)
-    lua_menu.config.delete:depend(configs_tab)
-    lua_menu.config.import:depend(configs_tab)
-    lua_menu.config.export:depend(configs_tab)
+    -- Mode selector always visible on configs tab
+    lua_menu.config.mode:depend(configs_tab)
+    
+    -- Local config dependencies (configs_tab AND mode == "Local")
+    local local_mode = {lua_menu.config.mode, "Local"}
+    lua_menu.config.list:depend(configs_tab, local_mode)
+    lua_menu.config.name:depend(configs_tab, local_mode)
+    lua_menu.config.save:depend(configs_tab, local_mode)
+    lua_menu.config.load:depend(configs_tab, local_mode)
+    lua_menu.config.delete:depend(configs_tab, local_mode)
+    lua_menu.config.import:depend(configs_tab, local_mode)
+    lua_menu.config.export:depend(configs_tab, local_mode)
+    
+    -- Cloud config dependencies (configs_tab AND mode == "Cloud")
+    local cloud_mode = {lua_menu.config.mode, "Cloud"}
+    lua_menu.config.cloud_list:depend(configs_tab, cloud_mode)
+    lua_menu.config.load_cloud:depend(configs_tab, cloud_mode)
+    
     lua_menu.main.user:depend(info_tab)
     lua_menu.main.build:depend(info_tab)
     lua_menu.main.last_upd:depend(info_tab)
@@ -2107,7 +2121,7 @@ end
                         { 200, 200, 200, info.type and ' (' or '' }, { info.hit[1], info.hit[2], info.hit[3], info.type and info.hp or '' }, { 200, 200, 200, info.type and ' hp remaning)' or '' },
                         { 200, 200, 200, ' ['}, { info.hit[1], info.hit[2], info.hit[3], info.spread_angle }, { 200, 200, 200, ' | ' }, { info.hit[1], info.hit[2], info.hit[3], info.correction}, { 200, 200, 200, ']' },
                         { 200, 200, 200, ' (hc: ' }, { info.hit[1], info.hit[2], info.hit[3], info.aimed_hitchance }, { 200, 200, 200, ' | safety: ' }, { info.hit[1], info.hit[2], info.hit[3], shot_logger[e.id].safety },
-                        { 200, 200, 200, ' | history(Δ): ' }, { info.hit[1], info.hit[2], info.hit[3], shot_logger[e.id].history }, { 200, 200, 200, ' | flags: ' }, { info.hit[1], info.hit[2], info.hit[3], info.flags },
+                        { 200, 200, 200, ' | bt: ' }, { info.hit[1], info.hit[2], info.hit[3], shot_logger[e.id].history }, { 200, 200, 200, ' | flags: ' }, { info.hit[1], info.hit[2], info.hit[3], info.flags },
                         { 200, 200, 200, ')' })
     end
     
@@ -2150,7 +2164,7 @@ end
                         { info.hit[1], info.hit[2], info.hit[3], info.reason },
                         { 200, 200, 200, ' ['}, { info.hit[1], info.hit[2], info.hit[3], info.spread_angle }, { 200, 200, 200, ' | ' }, { info.hit[1], info.hit[2], info.hit[3], info.correction}, { 200, 200, 200, ']' },
                         { 200, 200, 200, ' (hc: ' }, { info.hit[1], info.hit[2], info.hit[3], info.aimed_hitchance }, { 200, 200, 200, ' | safety: ' }, { info.hit[1], info.hit[2], info.hit[3], shot_logger[e.id].safety },
-                        { 200, 200, 200, ' | history(Δ): ' }, { info.hit[1], info.hit[2], info.hit[3], shot_logger[e.id].history }, { 200, 200, 200, ' | flags: ' }, { info.hit[1], info.hit[2], info.hit[3], info.flags },
+                        { 200, 200, 200, ' | bt: ' }, { info.hit[1], info.hit[2], info.hit[3], shot_logger[e.id].history }, { 200, 200, 200, ' | flags: ' }, { info.hit[1], info.hit[2], info.hit[3], info.flags },
                         { 200, 200, 200, ')' })
     end
     
@@ -2266,7 +2280,7 @@ end
         local r3, g3, b3, a3 = lua_menu.misc.key_color:get_color()
         local r, g, b, a = 255, 255, 255, 255
         text_fade_animation(center[1] + scoped_space, center[2] + 30, -1, {r=r1, g=g1, b=b1, a=255}, {r=r2, g=g2, b=b2, a=255}, "Krim", "-cd")
-        text_fade_animation(center[1] + scoped_space, center[2] + 40, -1, {r=r1, g=g1, b=b1, a=255}, {r=r2, g=g2, b=b2, a=255}, "RECODE", "-cd")
+        text_fade_animation(center[1] + scoped_space, center[2] + 40, -1, {r=r1, g=g1, b=b1, a=255}, {r=r2, g=g2, b=b2, a=255}, "Krim", "-cd")
         renderer.text(center[1] + scoped_space, center[2] + 50, r2, g2, b2, 255, "-cd", 0, condition)
 
         if ui.get(ref.forcebaim)then
@@ -2509,7 +2523,7 @@ end
         name = name:sub(1, 64)
 
         local desync_amount = math.floor(entity.get_prop(lp, 'm_flPoseParameter', 11) * 120 - 60)
-        text_fade_animation(20, center[2], -1, {r=r, g=g, b=b, a=a}, {r=255, g=255, b=255, a=255}, "Krim ~ RECODE", "d")
+        text_fade_animation(20, center[2], -1, {r=r, g=g, b=b, a=a}, {r=255, g=255, b=255, a=255}, "Krim ~ Krim", "d")
         local textsize = renderer.measure_text("cd", "Krim ~ Krim")
         renderer.gradient(20, center[2] + 15, textsize/2, 2, r, g, b, 50, r, g, b, a, true)
         renderer.gradient(20 + textsize/2,center[2] + 15, textsize/2, 2, r, g, b, a, r, g, b, 50, true)
@@ -2971,7 +2985,7 @@ aa_config = aa_package:save()
 package = ui_handler.setup(lua_menu)
 config = package:save()
 
-local config_system, protected, presets = {}, {}, {}
+local config_system, protected, presets, cloud_configs = {}, {}, {}, {}
 
 protected.database = {
     configs = ':illusions::configs:'
@@ -3195,6 +3209,128 @@ lua_menu.config.export:set_callback(function()
         print('Successfully exported settings')
     else
         print('Failed to export settings')
+    end
+end)
+
+-- Function to add presets to cloud configs list
+local function add_presets_to_cloud_configs()
+    local preset_names = {
+        [1] = "unmatched",
+        [2] = "soon 2",
+        [3] = "soon 3",
+        [4] = "soon 4",
+        [5] = "soon 5",
+        [6] = "soon 6",
+        [7] = "soon 7",
+        [8] = "soon 8",
+        [9] = "soon 9",
+        [10] = "soon 10"
+    }
+    
+    -- Remove existing preset entries from cloud_configs
+    for i = #cloud_configs, 1, -1 do
+        local name = cloud_configs[i].name
+        if name == "unmatched" or name:match("^soon %d+$") then
+            table.remove(cloud_configs, i)
+        end
+    end
+    
+    -- Add presets to cloud_configs with API URLs
+    for i = 1, 10 do
+        table.insert(cloud_configs, {
+            name = preset_names[i],
+            url = "http://37.221.65.150:3040/check?preset=" .. tostring(i)
+        })
+    end
+    
+    -- Update the cloud configs listbox
+    local config_names = {}
+    for _, config in ipairs(cloud_configs) do
+        table.insert(config_names, config.name)
+    end
+    lua_menu.config.cloud_list:update(config_names)
+    
+    print('Added presets 1-10 to cloud configs list')
+end
+
+
+lua_menu.config.load_cloud:set_callback(function()
+    if cloud_configs == nil or #cloud_configs == 0 then
+        print('No cloud configs available. Loading configs list...')
+        refresh_cloud_configs_list()
+        return
+    end
+    
+    local selected_index = lua_menu.config.cloud_list:get()
+    if selected_index == nil then
+        print('Please select a config from the list')
+        return
+    end
+
+    local config_item = cloud_configs[selected_index + 1] -- Lua is 1-indexed, listbox is 0-indexed
+    if not config_item or not config_item.url then
+        print('Invalid config selected')
+        return
+    end
+
+    print('Loading config: ' .. (config_item.name or 'Unknown') .. '...')
+    
+    -- Load directly from the API URL
+    http.get(config_item.url, function(success, response)
+        if not success then
+            print('Failed to load config from cloud: Network error')
+            return
+        end
+        
+        if response.status ~= 200 then
+            print('Failed to load config from cloud: HTTP ' .. tostring(response.status))
+            return
+        end
+        
+        local protected = function()
+            local config_data = response.body
+            local config = json.parse(base64.decode(config_data))
+            config_system.load_settings(config.config, config.config2)
+        end
+        
+        if pcall(protected) then
+            print('Successfully loaded config: ' .. (config_item.name or 'Unknown'))
+        else
+            print('Failed to parse config from cloud: Invalid format')
+        end
+    end)
+end)
+
+-- Function to refresh cloud configs list (presets only) for real-time updates
+local function refresh_cloud_configs_list()
+    -- Only load presets from API
+    add_presets_to_cloud_configs()
+end
+
+-- Auto-load presets to cloud configs on script initialization
+client.delay_call(2, function()
+    refresh_cloud_configs_list()
+end)
+
+-- Real-time update: Refresh cloud configs every 30 seconds
+local function start_real_time_updates()
+    client.delay_call(30, function()
+        refresh_cloud_configs_list()
+        start_real_time_updates() -- Schedule next update
+    end)
+end
+
+-- Start real-time updates after initial load
+client.delay_call(5, function()
+    start_real_time_updates()
+end)
+
+-- Auto-load cloud configs list when switching to Cloud mode
+lua_menu.config.mode:set_callback(function()
+    if lua_menu.config.mode:get() == "Cloud" then
+        if cloud_configs == nil or #cloud_configs == 0 then
+            refresh_cloud_configs_list()
+        end
     end
 end)
 
